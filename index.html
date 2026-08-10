@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Портфолио</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;1,500&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#14120f;
+    --bg-card:#1c1a16;
+    --bg-elevated:#211e19;
+    --text:#f1ede6;
+    --text-dim:#9a9488;
+    --accent:#c98a4b;
+    --accent-soft:rgba(201,138,75,.15);
+    --line:#34302a;
+    --danger:#c6604f;
+    --ok:#7fae7a;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Work Sans',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 28px;}
+
+  /* header */
+  header.site-header{
+    position:sticky;top:0;z-index:20;
+    background:rgba(20,18,15,.85);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .header-inner{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 28px;max-width:1120px;margin:0 auto;
+  }
+  .logo{
+    font-family:'Fraunces',serif;font-style:italic;font-weight:600;
+    font-size:1.25rem;letter-spacing:.01em;text-decoration:none;
+  }
+  nav a{
+    text-decoration:none;color:var(--text-dim);
+    font-size:.9rem;margin-left:28px;transition:color .2s;
+  }
+  nav a:hover{color:var(--accent);}
+
+  /* hero / filmstrip slider */
+  .hero{padding:64px 0 20px;}
+  .hero-intro{max-width:640px;margin:0 0 40px;}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;font-size:.72rem;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--accent);
+    display:block;margin-bottom:14px;
+  }
+  h1{
+    font-family:'Fraunces',serif;font-weight:600;
+    font-size:clamp(2.1rem,4.4vw,3.4rem);line-height:1.06;margin:0 0 16px;
+  }
+  h1 em{font-style:italic;color:var(--accent);}
+  .hero-sub{color:var(--text-dim);font-size:1.02rem;line-height:1.6;max-width:52ch;}
+
+  .filmstrip{
+    background:#0d0c0a;
+    border:1px solid var(--line);
+    border-radius:4px;
+    overflow:hidden;
+    position:relative;
+  }
+  .sprocket{
+    height:14px;
+    background-image:radial-gradient(circle,#0d0c0a 3px,transparent 3.6px),
+                      linear-gradient(#2a2620,#2a2620);
+    background-color:#2a2620;
+    background-size:22px 14px,100% 100%;
+    background-position:8px center;
+    background-repeat:repeat-x,no-repeat;
+  }
+  .slider-viewport{overflow:hidden;position:relative;}
+  .slider-track{display:flex;transition:transform .55s cubic-bezier(.65,0,.35,1);}
+  .slide{
+    min-width:100%;position:relative;
+    aspect-ratio:16/8;
+    display:flex;align-items:flex-end;
+  }
+  .slide img{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    filter:saturate(.92) contrast(1.03);
+  }
+  .slide::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(0deg,rgba(13,12,10,.92) 0%,rgba(13,12,10,.15) 55%,transparent 75%);
+  }
+  .slide-caption{
+    position:relative;z-index:1;padding:26px 30px;width:100%;
+    display:flex;align-items:flex-end;justify-content:space-between;gap:20px;
+  }
+  .slide-caption h3{
+    font-family:'Fraunces',serif;font-style:italic;font-weight:500;
+    font-size:clamp(1.2rem,2.6vw,1.8rem);margin:0 0 6px;
+  }
+  .slide-caption p{margin:0;color:#cfc9bd;font-size:.92rem;max-width:46ch;}
+  .slide-frame-no{
+    font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--accent);
+    white-space:nowrap;padding-bottom:4px;
+  }
+  .slider-controls{
+    position:absolute;top:50%;left:0;right:0;
+    display:flex;justify-content:space-between;
+    transform:translateY(-50%);padding:0 14px;pointer-events:none;z-index:2;
+  }
+  .slider-btn{
+    pointer-events:all;
+    width:38px;height:38px;border-radius:50%;
+    background:rgba(13,12,10,.55);border:1px solid rgba(241,237,230,.25);
+    color:var(--text);cursor:pointer;font-size:1rem;
+    display:flex;align-items:center;justify-content:center;
+    transition:background .2s,border-color .2s;
+  }
+  .slider-btn:hover{background:rgba(201,138,75,.35);border-color:var(--accent);}
+  .slider-empty{
+    padding:60px 30px;text-align:center;color:var(--text-dim);
+    font-family:'JetBrains Mono',monospace;font-size:.85rem;
+  }
+
+  /* works grid */
+  .section{padding:88px 0;}
+  .section-head{
+    display:flex;align-items:baseline;justify-content:space-between;
+    margin-bottom:36px;border-bottom:1px solid var(--line);padding-bottom:18px;
+  }
+  .section-head h2{
+    font-family:'Fraunces',serif;font-weight:600;font-size:1.9rem;margin:0;
+  }
+  .section-head .count{color:var(--text-dim);font-size:.85rem;}
+
+  .grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:24px;
+  }
+  .card{
+    background:var(--bg-card);border:1px solid var(--line);border-radius:6px;
+    overflow:hidden;display:flex;flex-direction:column;
+    transition:transform .25s,border-color .25s;
+  }
+  .card:hover{transform:translateY(-4px);border-color:var(--accent);}
+  .card-media{aspect-ratio:4/3;overflow:hidden;background:var(--bg-elevated);}
+  .card-media img{width:100%;height:100%;object-fit:cover;display:block;}
+  .card-body{padding:18px 20px 22px;display:flex;flex-direction:column;gap:8px;flex:1;}
+  .card-body h3{
+    font-family:'Fraunces',serif;font-weight:600;font-size:1.08rem;margin:0;
+  }
+  .card-body p{
+    color:var(--text-dim);font-size:.88rem;line-height:1.55;margin:0;flex:1;
+  }
+  .card-link{
+    font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--accent);
+    text-decoration:none;margin-top:6px;
+  }
+  .card-link:hover{text-decoration:underline;}
+  .empty-state{
+    color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:.85rem;
+    padding:40px 0;
+  }
+
+  /* contact */
+  .contact-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:50px;
+  }
+  .contact-info p{color:var(--text-dim);line-height:1.7;font-size:.96rem;}
+  .contact-links{list-style:none;padding:0;margin:22px 0 0;display:flex;flex-direction:column;gap:10px;}
+  .contact-links a{
+    text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:.88rem;
+    color:var(--text);border-bottom:1px solid var(--line);padding-bottom:8px;
+    display:inline-block;transition:color .2s,border-color .2s;
+  }
+  .contact-links a:hover{color:var(--accent);border-color:var(--accent);}
+
+  form.contact-form{display:flex;flex-direction:column;gap:14px;}
+  .field label{
+    display:block;font-family:'JetBrains Mono',monospace;font-size:.72rem;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;
+  }
+  .field input,.field textarea{
+    width:100%;background:var(--bg-card);border:1px solid var(--line);
+    border-radius:4px;padding:11px 13px;color:var(--text);font-family:'Work Sans',sans-serif;
+    font-size:.94rem;resize:vertical;
+  }
+  .field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);}
+  .submit-btn{
+    align-self:flex-start;background:var(--accent);color:#1a1611;border:none;
+    padding:12px 26px;border-radius:4px;font-weight:600;cursor:pointer;
+    font-size:.92rem;transition:opacity .2s;
+  }
+  .submit-btn:hover{opacity:.88;}
+  .submit-btn:disabled{opacity:.5;cursor:default;}
+  .form-status{font-size:.85rem;min-height:1.2em;}
+  .form-status.ok{color:var(--ok);}
+  .form-status.err{color:var(--danger);}
+
+  footer{
+    border-top:1px solid var(--line);padding:26px 0;
+    color:var(--text-dim);font-size:.8rem;font-family:'JetBrains Mono',monospace;
+    display:flex;justify-content:space-between;
+  }
+
+  @media (max-width:720px){
+    .contact-grid{grid-template-columns:1fr;}
+    .header-inner{padding:16px 20px;}
+    .hero{padding:40px 0 16px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a href="#top" class="logo" id="siteLogo">Портфолио</a>
+    <nav>
+      <a href="#works">Работы</a>
+      <a href="#contact">Связаться</a>
+    </nav>
+  </div>
+</header>
+
+<div id="top"></div>
+<div class="wrap">
+  <section class="hero">
+    <div class="hero-intro">
+      <span class="eyebrow">Избранное</span>
+      <h1 id="heroTitle">Работы, которые <em>говорят</em> сами за себя</h1>
+      <p class="hero-sub" id="heroSubtitle">Загружается описание…</p>
+    </div>
+
+    <div class="filmstrip">
+      <div class="sprocket"></div>
+      <div class="slider-viewport">
+        <div class="slider-track" id="sliderTrack">
+          <div class="slider-empty" id="sliderEmpty">Проекты ещё не добавлены — зайдите в админ‑панель</div>
+        </div>
+        <div class="slider-controls" id="sliderControls" style="display:none;">
+          <button class="slider-btn" id="prevBtn" aria-label="Предыдущий">‹</button>
+          <button class="slider-btn" id="nextBtn" aria-label="Следующий">›</button>
+        </div>
+      </div>
+      <div class="sprocket"></div>
+    </div>
+  </section>
+
+  <section class="section" id="works">
+    <div class="section-head">
+      <h2>Все проекты</h2>
+      <span class="count mono" id="worksCount"></span>
+    </div>
+    <div class="grid" id="worksGrid">
+      <div class="empty-state">Загрузка…</div>
+    </div>
+  </section>
+
+  <section class="section" id="contact">
+    <div class="section-head">
+      <h2>Связаться со мной</h2>
+    </div>
+    <div class="contact-grid">
+      <div class="contact-info">
+        <p id="bioText">Загрузка…</p>
+        <ul class="contact-links" id="contactLinks"></ul>
+      </div>
+      <div>
+        <form class="contact-form" id="contactForm">
+          <div class="field">
+            <label for="name">Имя</label>
+            <input type="text" id="name" required>
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" required>
+          </div>
+          <div class="field">
+            <label for="message">Сообщение</label>
+            <textarea id="message" rows="5" required></textarea>
+          </div>
+          <button type="submit" class="submit-btn" id="submitBtn">Отправить</button>
+          <div class="form-status" id="formStatus"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <div class="wrap" style="display:flex;justify-content:space-between;width:100%;">
+    <span id="footerName">Портфолио</span>
+    <span>© <span id="year"></span></span>
+  </div>
+</footer>
+
+<script>
+  // ====== 1. НАСТРОЙКИ SUPABASE — впишите свои значения ======
+  const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+  const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
+  // ============================================================
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // ---------- Настройки сайта ----------
+  async function loadSettings(){
+    const { data, error } = await sb.from('settings').select('*').eq('id', 1).maybeSingle();
+    if (error || !data) return;
+    if (data.site_title){
+      document.getElementById('siteLogo').textContent = data.site_title;
+      document.getElementById('footerName').textContent = data.site_title;
+      document.title = data.site_title;
+    }
+    if (data.hero_subtitle) document.getElementById('heroSubtitle').textContent = data.hero_subtitle;
+    if (data.bio) document.getElementById('bioText').textContent = data.bio;
+
+    const linksEl = document.getElementById('contactLinks');
+    linksEl.innerHTML = '';
+    const links = [];
+    if (data.contact_email) links.push({label: data.contact_email, href: 'mailto:' + data.contact_email});
+    if (data.telegram_url) links.push({label: 'Telegram', href: data.telegram_url});
+    if (data.instagram_url) links.push({label: 'Instagram', href: data.instagram_url});
+    if (data.extra_url) links.push({label: data.extra_label || 'Ссылка', href: data.extra_url});
+    links.forEach(l => {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = l.href; a.textContent = l.label;
+      if (l.href.startsWith('http')) a.target = '_blank';
+      li.appendChild(a);
+      linksEl.appendChild(li);
+    });
+  }
+
+  // ---------- Слайдер (избранные проекты) ----------
+  let sliderIndex = 0, sliderSlides = [];
+  function renderSlider(projects){
+    const featured = projects.filter(p => p.is_featured);
+    sliderSlides = (featured.length ? featured : projects).slice(0, 6);
+    const track = document.getElementById('sliderTrack');
+    const controls = document.getElementById('sliderControls');
+    track.innerHTML = '';
+    if (!sliderSlides.length){
+      track.innerHTML = '<div class="slider-empty">Проекты ещё не добавлены — зайдите в админ‑панель</div>';
+      controls.style.display = 'none';
+      return;
+    }
+    controls.style.display = sliderSlides.length > 1 ? 'flex' : 'none';
+    sliderSlides.forEach((p, i) => {
+      const slide = document.createElement('div');
+      slide.className = 'slide';
+      slide.innerHTML = `
+        <img src="${p.image_url || ''}" alt="${escapeHtml(p.title || '')}" loading="lazy">
+        <div class="slide-caption">
+          <div>
+            <h3>${escapeHtml(p.title || 'Без названия')}</h3>
+            <p>${escapeHtml(p.description || '')}</p>
+          </div>
+          <span class="slide-frame-no mono">${String(i+1).padStart(2,'0')} / ${String(sliderSlides.length).padStart(2,'0')}</span>
+        </div>`;
+      track.appendChild(slide);
+    });
+    goToSlide(0);
+  }
+  function goToSlide(i){
+    if (!sliderSlides.length) return;
+    sliderIndex = (i + sliderSlides.length) % sliderSlides.length;
+    document.getElementById('sliderTrack').style.transform = `translateX(-${sliderIndex * 100}%)`;
+  }
+  document.getElementById('prevBtn').addEventListener('click', () => goToSlide(sliderIndex - 1));
+  document.getElementById('nextBtn').addEventListener('click', () => goToSlide(sliderIndex + 1));
+  let autoplay = setInterval(() => goToSlide(sliderIndex + 1), 6000);
+  const viewport = document.querySelector('.slider-viewport');
+  viewport.addEventListener('mouseenter', () => clearInterval(autoplay));
+  viewport.addEventListener('mouseleave', () => autoplay = setInterval(() => goToSlide(sliderIndex + 1), 6000));
+
+  // ---------- Карточки проектов ----------
+  function renderGrid(projects){
+    const grid = document.getElementById('worksGrid');
+    document.getElementById('worksCount').textContent = projects.length ? `${projects.length} проектов` : '';
+    if (!projects.length){
+      grid.innerHTML = '<div class="empty-state">Проекты ещё не добавлены — зайдите в админ‑панель</div>';
+      return;
+    }
+    grid.innerHTML = '';
+    projects.forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="card-media"><img src="${p.image_url || ''}" alt="${escapeHtml(p.title || '')}" loading="lazy"></div>
+        <div class="card-body">
+          <h3>${escapeHtml(p.title || 'Без названия')}</h3>
+          <p>${escapeHtml(p.description || '')}</p>
+          ${p.project_url ? `<a class="card-link" href="${p.project_url}" target="_blank">Открыть проект ↗</a>` : ''}
+        </div>`;
+      grid.appendChild(card);
+    });
+  }
+
+  async function loadProjects(){
+    const { data, error } = await sb.from('projects').select('*').order('position', { ascending: true }).order('created_at', { ascending: false });
+    if (error || !data){
+      document.getElementById('worksGrid').innerHTML = '<div class="empty-state">Не удалось загрузить проекты</div>';
+      return;
+    }
+    renderSlider(data);
+    renderGrid(data);
+  }
+
+  // ---------- Форма связи ----------
+  document.getElementById('contactForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submitBtn');
+    const status = document.getElementById('formStatus');
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const message = document.getElementById('message').value.trim();
+    btn.disabled = true; btn.textContent = 'Отправка…';
+    status.textContent = ''; status.className = 'form-status';
+
+    const { error } = await sb.from('messages').insert({ name, email, message });
+    if (error){
+      status.textContent = 'Не получилось отправить. Попробуйте ещё раз.';
+      status.classList.add('err');
+    } else {
+      status.textContent = 'Сообщение отправлено, спасибо!';
+      status.classList.add('ok');
+      e.target.reset();
+    }
+    btn.disabled = false; btn.textContent = 'Отправить';
+  });
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  }
+
+  loadSettings();
+  loadProjects();
+</script>
+</body>
+</html>

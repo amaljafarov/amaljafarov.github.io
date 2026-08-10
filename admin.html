@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Админ‑панель — Портфолио</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;1,500&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#14120f;
+    --bg-card:#1c1a16;
+    --bg-elevated:#211e19;
+    --text:#f1ede6;
+    --text-dim:#9a9488;
+    --accent:#c98a4b;
+    --accent-soft:rgba(201,138,75,.15);
+    --line:#34302a;
+    --danger:#c6604f;
+    --ok:#7fae7a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:'Work Sans',sans-serif;-webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'JetBrains Mono',monospace;}
+  h1,h2{font-family:'Fraunces',serif;font-weight:600;margin:0;}
+
+  /* ---- login screen ---- */
+  .login-screen{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  .login-card{
+    width:100%;max-width:380px;background:var(--bg-card);border:1px solid var(--line);
+    border-radius:8px;padding:36px 32px;
+  }
+  .login-card .eyebrow{
+    font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--accent);display:block;margin-bottom:10px;
+  }
+  .login-card h1{font-size:1.6rem;font-style:italic;margin-bottom:22px;}
+  .field{margin-bottom:16px;}
+  .field label{
+    display:block;font-family:'JetBrains Mono',monospace;font-size:.72rem;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;
+  }
+  .field input,.field textarea{
+    width:100%;background:var(--bg-elevated);border:1px solid var(--line);border-radius:4px;
+    padding:11px 13px;color:var(--text);font-family:'Work Sans',sans-serif;font-size:.94rem;
+  }
+  .field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);}
+  .btn{
+    background:var(--accent);color:#1a1611;border:none;padding:11px 22px;border-radius:4px;
+    font-weight:600;cursor:pointer;font-size:.92rem;transition:opacity .2s;
+  }
+  .btn:hover{opacity:.88;}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .btn.secondary{background:transparent;border:1px solid var(--line);color:var(--text);}
+  .btn.danger{background:var(--danger);color:#1a1611;}
+  .btn.small{padding:7px 14px;font-size:.82rem;}
+  .status-msg{font-size:.85rem;min-height:1.2em;margin-top:8px;}
+  .status-msg.ok{color:var(--ok);}
+  .status-msg.err{color:var(--danger);}
+
+  /* ---- dashboard shell ---- */
+  .app{display:none;min-height:100vh;}
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 28px;border-bottom:1px solid var(--line);
+    background:rgba(20,18,15,.9);position:sticky;top:0;z-index:10;
+  }
+  .topbar .brand{display:flex;align-items:center;gap:10px;}
+  .topbar .brand span.eyebrow{
+    font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--accent);
+    letter-spacing:.1em;text-transform:uppercase;
+  }
+  .topbar h1{font-size:1.15rem;font-style:italic;}
+  .layout{display:flex;max-width:1180px;margin:0 auto;}
+  .sidebar{
+    width:200px;flex-shrink:0;padding:26px 16px;border-right:1px solid var(--line);
+    min-height:calc(100vh - 65px);
+  }
+  .tab-btn{
+    display:block;width:100%;text-align:left;background:none;border:none;color:var(--text-dim);
+    padding:10px 12px;border-radius:4px;cursor:pointer;font-size:.9rem;margin-bottom:4px;
+    font-family:'Work Sans',sans-serif;
+  }
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:600;}
+  .content{flex:1;padding:32px 32px 60px;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .panel-head{
+    display:flex;align-items:baseline;justify-content:space-between;
+    margin-bottom:26px;padding-bottom:16px;border-bottom:1px solid var(--line);
+  }
+
+  /* ---- cards / forms ---- */
+  .card-box{
+    background:var(--bg-card);border:1px solid var(--line);border-radius:6px;padding:24px;
+  }
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .form-grid .full{grid-column:1/-1;}
+  textarea{resize:vertical;}
+  .checkbox-row{display:flex;align-items:center;gap:8px;margin-top:4px;}
+  .checkbox-row input{width:auto;}
+  .checkbox-row label{margin:0;text-transform:none;font-size:.88rem;color:var(--text);}
+
+  /* project list */
+  .item-list{display:flex;flex-direction:column;gap:12px;margin-top:28px;}
+  .item-row{
+    display:flex;gap:14px;align-items:center;background:var(--bg-card);
+    border:1px solid var(--line);border-radius:6px;padding:12px 16px;
+  }
+  .item-row img{width:64px;height:48px;object-fit:cover;border-radius:4px;background:var(--bg-elevated);}
+  .item-row .item-info{flex:1;min-width:0;}
+  .item-row .item-info strong{display:block;font-size:.94rem;}
+  .item-row .item-info span{color:var(--text-dim);font-size:.8rem;}
+  .item-row .item-actions{display:flex;gap:8px;}
+  .badge{
+    font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--accent);
+    border:1px solid var(--accent);border-radius:3px;padding:2px 6px;margin-left:8px;
+  }
+  .empty-note{color:var(--text-dim);font-size:.88rem;padding:20px 0;font-family:'JetBrains Mono',monospace;}
+
+  /* messages */
+  .msg-row{
+    background:var(--bg-card);border:1px solid var(--line);border-radius:6px;
+    padding:16px 18px;margin-bottom:12px;
+  }
+  .msg-row.unread{border-color:var(--accent);}
+  .msg-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+  .msg-top strong{font-size:.95rem;}
+  .msg-top span{color:var(--text-dim);font-size:.78rem;font-family:'JetBrains Mono',monospace;}
+  .msg-body{color:var(--text);font-size:.92rem;line-height:1.55;margin-bottom:10px;}
+  .msg-actions{display:flex;gap:8px;}
+
+  @media (max-width:800px){
+    .layout{flex-direction:column;}
+    .sidebar{width:100%;display:flex;gap:6px;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);min-height:auto;}
+    .form-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== ЭКРАН ВХОДА ===== -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <span class="eyebrow">Админ‑панель</span>
+    <h1>Вход</h1>
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" required>
+      </div>
+      <div class="field">
+        <label for="loginPassword">Пароль</label>
+        <input type="password" id="loginPassword" required>
+      </div>
+      <button type="submit" class="btn" id="loginBtn" style="width:100%;">Войти</button>
+      <div class="status-msg" id="loginStatus"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== ПАНЕЛЬ УПРАВЛЕНИЯ ===== -->
+<div class="app" id="app">
+  <div class="topbar">
+    <div class="brand">
+      <span class="eyebrow mono">Админ</span>
+      <h1>Управление портфолио</h1>
+    </div>
+    <button class="btn secondary small" id="logoutBtn">Выйти</button>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <button class="tab-btn active" data-tab="projects">Проекты</button>
+      <button class="tab-btn" data-tab="settings">Настройки сайта</button>
+      <button class="tab-btn" data-tab="messages">Сообщения</button>
+    </div>
+
+    <div class="content">
+
+      <!-- ---- PROJECTS ---- -->
+      <div class="panel active" id="panel-projects">
+        <div class="panel-head"><h2>Проекты</h2></div>
+
+        <div class="card-box">
+          <form id="projectForm">
+            <input type="hidden" id="projectId">
+            <div class="form-grid">
+              <div class="field full">
+                <label for="pTitle">Название</label>
+                <input type="text" id="pTitle" required>
+              </div>
+              <div class="field full">
+                <label for="pDescription">Описание</label>
+                <textarea id="pDescription" rows="3"></textarea>
+              </div>
+              <div class="field">
+                <label for="pUrl">Ссылка на проект (необязательно)</label>
+                <input type="url" id="pUrl" placeholder="https://…">
+              </div>
+              <div class="field">
+                <label for="pPosition">Порядок (число, меньше = раньше)</label>
+                <input type="number" id="pPosition" value="0">
+              </div>
+              <div class="field full">
+                <label for="pImageFile">Фото проекта</label>
+                <input type="file" id="pImageFile" accept="image/*">
+                <div class="checkbox-row">
+                  <input type="checkbox" id="pFeatured">
+                  <label for="pFeatured">Показывать в слайдере на главной</label>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:18px;">
+              <button type="submit" class="btn" id="projectSaveBtn">Добавить проект</button>
+              <button type="button" class="btn secondary" id="projectCancelEdit" style="display:none;">Отменить редактирование</button>
+            </div>
+            <div class="status-msg" id="projectFormStatus"></div>
+          </form>
+        </div>
+
+        <div class="item-list" id="projectsList"></div>
+      </div>
+
+      <!-- ---- SETTINGS ---- -->
+      <div class="panel" id="panel-settings">
+        <div class="panel-head"><h2>Настройки сайта</h2></div>
+        <div class="card-box">
+          <form id="settingsForm">
+            <div class="form-grid">
+              <div class="field full">
+                <label for="sTitle">Название сайта</label>
+                <input type="text" id="sTitle">
+              </div>
+              <div class="field full">
+                <label for="sSubtitle">Подзаголовок на главной</label>
+                <input type="text" id="sSubtitle">
+              </div>
+              <div class="field full">
+                <label for="sBio">Текст о себе (в блоке «Связаться»)</label>
+                <textarea id="sBio" rows="4"></textarea>
+              </div>
+              <div class="field">
+                <label for="sEmail">Email для связи</label>
+                <input type="email" id="sEmail">
+              </div>
+              <div class="field">
+                <label for="sTelegram">Telegram (ссылка)</label>
+                <input type="url" id="sTelegram">
+              </div>
+              <div class="field">
+                <label for="sInstagram">Instagram (ссылка)</label>
+                <input type="url" id="sInstagram">
+              </div>
+              <div class="field">
+                <label for="sExtraLabel">Название доп. ссылки</label>
+                <input type="text" id="sExtraLabel" placeholder="Behance, сайт…">
+              </div>
+              <div class="field full">
+                <label for="sExtraUrl">Доп. ссылка (URL)</label>
+                <input type="url" id="sExtraUrl">
+              </div>
+            </div>
+            <button type="submit" class="btn" style="margin-top:18px;">Сохранить настройки</button>
+            <div class="status-msg" id="settingsStatus"></div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ---- MESSAGES ---- -->
+      <div class="panel" id="panel-messages">
+        <div class="panel-head">
+          <h2>Сообщения</h2>
+          <span class="mono" id="messagesCount" style="color:var(--text-dim);font-size:.85rem;"></span>
+        </div>
+        <div id="messagesList"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // ====== 1. НАСТРОЙКИ SUPABASE — впишите свои значения (те же, что в index.html) ======
+  const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+  const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
+  const STORAGE_BUCKET = 'project-images';
+  // =======================================================================================
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const loginScreen = document.getElementById('loginScreen');
+  const app = document.getElementById('app');
+
+  // ---------- AUTH ----------
+  async function checkSession(){
+    const { data } = await sb.auth.getSession();
+    if (data.session){
+      showApp();
+    } else {
+      showLogin();
+    }
+  }
+  function showApp(){
+    loginScreen.style.display = 'none';
+    app.style.display = 'block';
+    loadSettings();
+    loadProjects();
+    loadMessages();
+  }
+  function showLogin(){
+    loginScreen.style.display = 'flex';
+    app.style.display = 'none';
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    const status = document.getElementById('loginStatus');
+    btn.disabled = true; btn.textContent = 'Вход…';
+    status.textContent = ''; status.className = 'status-msg';
+
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+
+    if (error){
+      status.textContent = 'Неверный email или пароль.';
+      status.classList.add('err');
+      btn.disabled = false; btn.textContent = 'Войти';
+    } else {
+      showApp();
+      btn.disabled = false; btn.textContent = 'Войти';
+    }
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await sb.auth.signOut();
+    showLogin();
+  });
+
+  sb.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') showLogin();
+  });
+
+  // ---------- TABS ----------
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  function escapeHtml(str){
+    return String(str || '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  }
+
+  // ---------- SETTINGS ----------
+  async function loadSettings(){
+    const { data } = await sb.from('settings').select('*').eq('id', 1).maybeSingle();
+    if (!data) return;
+    document.getElementById('sTitle').value = data.site_title || '';
+    document.getElementById('sSubtitle').value = data.hero_subtitle || '';
+    document.getElementById('sBio').value = data.bio || '';
+    document.getElementById('sEmail').value = data.contact_email || '';
+    document.getElementById('sTelegram').value = data.telegram_url || '';
+    document.getElementById('sInstagram').value = data.instagram_url || '';
+    document.getElementById('sExtraLabel').value = data.extra_label || '';
+    document.getElementById('sExtraUrl').value = data.extra_url || '';
+  }
+
+  document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = document.getElementById('settingsStatus');
+    status.textContent = 'Сохранение…'; status.className = 'status-msg';
+
+    const payload = {
+      id: 1,
+      site_title: document.getElementById('sTitle').value.trim(),
+      hero_subtitle: document.getElementById('sSubtitle').value.trim(),
+      bio: document.getElementById('sBio').value.trim(),
+      contact_email: document.getElementById('sEmail').value.trim(),
+      telegram_url: document.getElementById('sTelegram').value.trim(),
+      instagram_url: document.getElementById('sInstagram').value.trim(),
+      extra_label: document.getElementById('sExtraLabel').value.trim(),
+      extra_url: document.getElementById('sExtraUrl').value.trim(),
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await sb.from('settings').upsert(payload);
+    if (error){
+      status.textContent = 'Ошибка сохранения: ' + error.message;
+      status.classList.add('err');
+    } else {
+      status.textContent = 'Настройки сохранены.';
+      status.classList.add('ok');
+    }
+  });
+
+  // ---------- PROJECTS ----------
+  let editingProjectId = null;
+  let editingProjectImage = null;
+
+  async function loadProjects(){
+    const { data, error } = await sb.from('projects').select('*').order('position', { ascending: true }).order('created_at', { ascending: false });
+    const list = document.getElementById('projectsList');
+    if (error){
+      list.innerHTML = '<div class="empty-note">Не удалось загрузить проекты.</div>';
+      return;
+    }
+    if (!data.length){
+      list.innerHTML = '<div class="empty-note">Проектов пока нет — добавьте первый выше.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    data.forEach(p => {
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `
+        <img src="${p.image_url || ''}" alt="">
+        <div class="item-info">
+          <strong>${escapeHtml(p.title)} ${p.is_featured ? '<span class="badge">слайдер</span>' : ''}</strong>
+          <span>позиция: ${p.position ?? 0}</span>
+        </div>
+        <div class="item-actions">
+          <button class="btn secondary small" data-edit="${p.id}">Изменить</button>
+          <button class="btn danger small" data-delete="${p.id}">Удалить</button>
+        </div>`;
+      list.appendChild(row);
+    });
+
+    list.querySelectorAll('[data-edit]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const project = data.find(p => p.id === btn.dataset.edit);
+        fillProjectForm(project);
+      });
+    });
+    list.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.addEventListener('click', () => deleteProject(btn.dataset.delete, data));
+    });
+  }
+
+  function fillProjectForm(p){
+    editingProjectId = p.id;
+    editingProjectImage = p.image_url;
+    document.getElementById('projectId').value = p.id;
+    document.getElementById('pTitle').value = p.title || '';
+    document.getElementById('pDescription').value = p.description || '';
+    document.getElementById('pUrl').value = p.project_url || '';
+    document.getElementById('pPosition').value = p.position ?? 0;
+    document.getElementById('pFeatured').checked = !!p.is_featured;
+    document.getElementById('projectSaveBtn').textContent = 'Сохранить изменения';
+    document.getElementById('projectCancelEdit').style.display = 'inline-block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  document.getElementById('projectCancelEdit').addEventListener('click', resetProjectForm);
+  function resetProjectForm(){
+    editingProjectId = null;
+    editingProjectImage = null;
+    document.getElementById('projectForm').reset();
+    document.getElementById('projectId').value = '';
+    document.getElementById('projectSaveBtn').textContent = 'Добавить проект';
+    document.getElementById('projectCancelEdit').style.display = 'none';
+  }
+
+  async function uploadImage(file){
+    const ext = file.name.split('.').pop();
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await sb.storage.from(STORAGE_BUCKET).upload(path, file);
+    if (error) throw error;
+    const { data } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  document.getElementById('projectForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = document.getElementById('projectFormStatus');
+    const saveBtn = document.getElementById('projectSaveBtn');
+    status.textContent = 'Сохранение…'; status.className = 'status-msg';
+    saveBtn.disabled = true;
+
+    try {
+      let imageUrl = editingProjectImage || null;
+      const file = document.getElementById('pImageFile').files[0];
+      if (file) imageUrl = await uploadImage(file);
+
+      const payload = {
+        title: document.getElementById('pTitle').value.trim(),
+        description: document.getElementById('pDescription').value.trim(),
+        project_url: document.getElementById('pUrl').value.trim() || null,
+        position: parseInt(document.getElementById('pPosition').value, 10) || 0,
+        is_featured: document.getElementById('pFeatured').checked,
+        image_url: imageUrl
+      };
+
+      let error;
+      if (editingProjectId){
+        ({ error } = await sb.from('projects').update(payload).eq('id', editingProjectId));
+      } else {
+        ({ error } = await sb.from('projects').insert(payload));
+      }
+      if (error) throw error;
+
+      status.textContent = 'Готово.';
+      status.classList.add('ok');
+      resetProjectForm();
+      loadProjects();
+    } catch (err){
+      status.textContent = 'Ошибка: ' + err.message;
+      status.classList.add('err');
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+
+  async function deleteProject(id, allProjects){
+    if (!confirm('Удалить этот проект?')) return;
+    const project = allProjects.find(p => p.id === id);
+    await sb.from('projects').delete().eq('id', id);
+    if (project && project.image_url){
+      try {
+        const path = project.image_url.split(`/${STORAGE_BUCKET}/`).pop();
+        if (path) await sb.storage.from(STORAGE_BUCKET).remove([path]);
+      } catch (_) { /* некритично, файл можно удалить вручную */ }
+    }
+    loadProjects();
+  }
+
+  // ---------- MESSAGES ----------
+  async function loadMessages(){
+    const { data, error } = await sb.from('messages').select('*').order('created_at', { ascending: false });
+    const list = document.getElementById('messagesList');
+    const count = document.getElementById('messagesCount');
+    if (error){
+      list.innerHTML = '<div class="empty-note">Не удалось загрузить сообщения.</div>';
+      return;
+    }
+    count.textContent = data.length ? `${data.length} всего` : '';
+    if (!data.length){
+      list.innerHTML = '<div class="empty-note">Сообщений пока нет.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    data.forEach(m => {
+      const row = document.createElement('div');
+      row.className = 'msg-row' + (m.is_read ? '' : ' unread');
+      const date = new Date(m.created_at).toLocaleString('ru-RU');
+      row.innerHTML = `
+        <div class="msg-top">
+          <strong>${escapeHtml(m.name)} · <a href="mailto:${escapeHtml(m.email)}" style="color:var(--accent);">${escapeHtml(m.email)}</a></strong>
+          <span>${date}</span>
+        </div>
+        <div class="msg-body">${escapeHtml(m.message)}</div>
+        <div class="msg-actions">
+          ${!m.is_read ? `<button class="btn secondary small" data-read="${m.id}">Отметить прочитанным</button>` : ''}
+          <button class="btn danger small" data-delmsg="${m.id}">Удалить</button>
+        </div>`;
+      list.appendChild(row);
+    });
+    list.querySelectorAll('[data-read]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await sb.from('messages').update({ is_read: true }).eq('id', btn.dataset.read);
+        loadMessages();
+      });
+    });
+    list.querySelectorAll('[data-delmsg]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Удалить это сообщение?')) return;
+        await sb.from('messages').delete().eq('id', btn.dataset.delmsg);
+        loadMessages();
+      });
+    });
+  }
+
+  checkSession();
+</script>
+</body>
+</html>
